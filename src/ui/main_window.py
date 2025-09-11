@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget
-# Importar los widgets que acabas de crear
+from src.core.database import DatabaseManager # Importar el gestor de la DB
+from src.core.controllers.journal_controller import JournalController # Importar el nuevo controlador
 from src.ui.journal_view import JournalView
 from src.ui.graph_widget import GraphWidget
 from src.ui.risk_manager_widget import RiskManagerWidget
@@ -10,7 +11,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Trading Journal App")
-        self.setGeometry(100, 100, 1200, 800)  # Aumentamos el tamaño
+        self.setGeometry(100, 100, 1200, 800)
+
+        self.db_manager = DatabaseManager() # Instanciar la base de datos
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -22,25 +25,21 @@ class MainWindow(QMainWindow):
         self.setup_tabs()
 
     def setup_tabs(self):
-        """
-        Configura y añade las pestañas a la ventana principal.
-        """
-        # Registro de Operaciones
+        # Pestaña de Registro de Operaciones
         journal_tab = JournalView()
+        # Instanciar el controlador y pasarle la vista y el gestor de la DB
+        self.journal_controller = JournalController(journal_tab, self.db_manager) 
         self.tab_widget.addTab(journal_tab, "Registro de Operaciones")
 
-        # Gráficos (ahora con el widget)
+        # ... (el resto del código de setup_tabs es el mismo)
         graphs_tab = GraphWidget()
         self.tab_widget.addTab(graphs_tab, "Gráficos")
 
-        # Gestión de Riesgos (ahora con el widget)
         risk_manager_tab = RiskManagerWidget()
         self.tab_widget.addTab(risk_manager_tab, "Gestión de Riesgos")
 
-        # Portafolio (ahora con el widget)
         portfolio_tab = PortfolioWidget()
         self.tab_widget.addTab(portfolio_tab, "Portafolio")
 
-        # Mantenimiento (ahora con el widget)
         maintenance_tab = MaintenanceWidget()
         self.tab_widget.addTab(maintenance_tab, "Mantenimiento")
