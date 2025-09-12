@@ -27,40 +27,49 @@ class JournalController:
         Recopila los datos del formulario, los procesa y los guarda en la base de datos.
         """
         try:
-            # Reemplazar comas con puntos para la conversión a float
+            # Reemplazar comas con puntos y manejar campos vacíos
             entry_price_str = self.view.entry_price_input.text().replace(',', '.')
             stop_loss_str = self.view.stop_loss_input.text().replace(',', '.')
             take_profit_str = self.view.take_profit_input.text().replace(',', '.')
             exit_price_str = self.view.exit_price_input.text().replace(',', '.')
             size_str = self.view.size_input.text().replace(',', '.')
+            risk_reward_str = self.view.risk_reward_input.text().replace(',', '.')
+
+            # Validación de campos vacíos para valores numéricos
+            # --- Añade estas líneas de depuración ---
+            print(f"Valor de Precio de Entrada: '{entry_price_str}'")
+            print(f"Valor de Precio de Salida: '{exit_price_str}'")
+            print(f"Valor de Tamaño: '{size_str}'")
+            # --- Fin de las líneas de depuración ---
+            if not all([entry_price_str, exit_price_str, size_str]):
+                raise ValueError("Los campos de precio de entrada, precio de salida y tamaño no pueden estar vacíos.")
 
             trade_data = {
                 'date': self.view.date_input.text(),
                 'symbol': self.view.symbol_input.text(),
                 'direction': self.view.direction_input.text(),
                 'entry_price': float(entry_price_str),
-                'stop_loss': float(stop_loss_str),
-                'take_profit': float(take_profit_str),
+                'stop_loss': float(stop_loss_str) if stop_loss_str else None,
+                'take_profit': float(take_profit_str) if take_profit_str else None,
                 'exit_price': float(exit_price_str),
                 'size': float(size_str),
                 'notes': self.view.notes_input.text(),
-                'strategy': self.view.strategy_input.text(), # Nuevo campo
-                'risk_reward': self.view.risk_reward_input.text(), # Nuevo campo
+                'strategy': self.view.strategy_input.text(),
+                'risk_reward': float(risk_reward_str) if risk_reward_str else None,
             }
-
-            # TODO: Implementar la lógica de cálculo para profit_loss
-            # Por ahora, un valor fijo para la prueba
+            
             trade_data['profit_loss'] = (trade_data['exit_price'] - trade_data['entry_price']) * trade_data['size']
 
             self.db_manager.add_trade(trade_data)
             print("Operación guardada exitosamente.")
             self.clear_form()
 
-        except ValueError:
-            print("Error: Asegúrate de que los precios, el tamaño y otros valores numéricos sean válidos.")
+        except ValueError as e:
+            print(f"Error: {e}")
+            print("Asegúrate de que los precios, el tamaño y otros valores numéricos sean válidos.")
         except Exception as e:
             print(f"Ocurrió un error inesperado: {e}")
-
+            
     def clear_form(self):
         """
         Limpia todos los campos del formulario.

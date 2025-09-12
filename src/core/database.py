@@ -59,10 +59,14 @@ class DatabaseManager:
                     symbol TEXT NOT NULL,
                     direction TEXT NOT NULL,
                     entry_price REAL NOT NULL,
+                    stop_loss REAL,           -- ¡Nuevo campo!
+                    take_profit REAL,         -- ¡Nuevo campo!
                     exit_price REAL,
                     size REAL NOT NULL,
                     profit_loss REAL,
-                    notes TEXT
+                    notes TEXT,
+                    strategy TEXT,            -- ¡Nuevo campo!
+                    risk_reward REAL          -- ¡Nuevo campo!
                 )
             ''')
             self.conn.commit()
@@ -71,26 +75,51 @@ class DatabaseManager:
         finally:
             self.disconnect()
 
-    def add_trade(self, trade: dict):
+    def add_trade(self, trade_data):
         """
-        Inserta una nueva operación en la base de datos.
+        Agrega una nueva operación a la tabla 'trades'.
 
         Args:
-            trade (dict): Un diccionario con los datos de la operación.
+            trade_data (dict): Un diccionario que contiene los datos de la operación.
         """
         self.connect()
         if self.conn is None:
             return
-            
+        
         try:
             self.cursor.execute('''
-                INSERT INTO trades (date, symbol, direction, entry_price, exit_price, size, profit_loss, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (trade['date'], trade['symbol'], trade['direction'], trade['entry_price'], 
-                  trade['exit_price'], trade['size'], trade['profit_loss'], trade['notes']))
+                INSERT INTO trades (
+                    date,
+                    symbol,
+                    direction,
+                    entry_price,
+                    stop_loss,
+                    take_profit,
+                    exit_price,
+                    size,
+                    profit_loss,
+                    notes,
+                    strategy,
+                    risk_reward
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                trade_data.get('date'),
+                trade_data.get('symbol'),
+                trade_data.get('direction'),
+                trade_data.get('entry_price'),
+                trade_data.get('stop_loss'),
+                trade_data.get('take_profit'),
+                trade_data.get('exit_price'),
+                trade_data.get('size'),
+                trade_data.get('profit_loss'),
+                trade_data.get('notes'),
+                trade_data.get('strategy'),
+                trade_data.get('risk_reward')
+            ))
             self.conn.commit()
+            print("Datos insertados exitosamente.")
         except sqlite3.Error as e:
-            print(f"Error al agregar la operación: {e}")
+            print(f"Error al insertar datos: {e}")
         finally:
             self.disconnect()
             
