@@ -1,4 +1,5 @@
 from src.core.database import DatabaseManager
+from PyQt6.QtCore import QDate
 
 class JournalController:
     """
@@ -27,7 +28,6 @@ class JournalController:
         Recopila los datos del formulario, los procesa y los guarda en la base de datos.
         """
         try:
-            # Reemplazar comas con puntos y manejar campos vacíos
             entry_price_str = self.view.entry_price_input.text().replace(',', '.')
             stop_loss_str = self.view.stop_loss_input.text().replace(',', '.')
             take_profit_str = self.view.take_profit_input.text().replace(',', '.')
@@ -35,19 +35,15 @@ class JournalController:
             size_str = self.view.size_input.text().replace(',', '.')
             risk_reward_str = self.view.risk_reward_input.text().replace(',', '.')
 
-            # Validación de campos vacíos para valores numéricos
-            # --- Añade estas líneas de depuración ---
-            print(f"Valor de Precio de Entrada: '{entry_price_str}'")
-            print(f"Valor de Precio de Salida: '{exit_price_str}'")
-            print(f"Valor de Tamaño: '{size_str}'")
-            # --- Fin de las líneas de depuración ---
+            # 1. Validación de campos vacíos para valores numéricos
             if not all([entry_price_str, exit_price_str, size_str]):
                 raise ValueError("Los campos de precio de entrada, precio de salida y tamaño no pueden estar vacíos.")
 
+            # 2. Convertir los datos a sus tipos de dato correctos
             trade_data = {
                 'date': self.view.date_input.text(),
                 'symbol': self.view.symbol_input.text(),
-                'direction': self.view.direction_input.text(),
+                'direction': self.view.direction_input.currentText(),
                 'entry_price': float(entry_price_str),
                 'stop_loss': float(stop_loss_str) if stop_loss_str else None,
                 'take_profit': float(take_profit_str) if take_profit_str else None,
@@ -57,11 +53,30 @@ class JournalController:
                 'strategy': self.view.strategy_input.text(),
                 'risk_reward': float(risk_reward_str) if risk_reward_str else None,
             }
-            
-            trade_data['profit_loss'] = (trade_data['exit_price'] - trade_data['entry_price']) * trade_data['size']
 
+            # 3. Lógica de cálculo (como la definimos anteriormente)
+            if trade_data['direction'].lower() == 'buy':
+                profit_loss_points = (trade_data['exit_price'] - trade_data['entry_price'])
+            else:
+                profit_loss_points = (trade_data['entry_price'] - trade_data['exit_price'])
+
+            # 4. Asignar el resultado y calcular la ganancia/pérdida en USD
+            if profit_loss_points > 0:
+                trade_outcome = "Win"
+            elif profit_loss_points < 0:
+                trade_outcome = "Loss"
+            else:
+                trade_outcome = "Breakeven"
+
+            pip_value_usd = 10.0
+            profit_loss_usd = profit_loss_points * trade_data['size'] * pip_value_usd
+
+            trade_data['profit_loss'] = profit_loss_points
+            trade_data['profit_loss_usd'] = profit_loss_usd
+            trade_data['trade_outcome'] = trade_outcome
+
+            # 5. Guardar los datos y limpiar el formulario
             self.db_manager.add_trade(trade_data)
-            print("Operación guardada exitosamente.")
             self.clear_form()
 
         except ValueError as e:
@@ -69,17 +84,22 @@ class JournalController:
             print("Asegúrate de que los precios, el tamaño y otros valores numéricos sean válidos.")
         except Exception as e:
             print(f"Ocurrió un error inesperado: {e}")
-            
+   
     def clear_form(self):
         """
-        Limpia todos los campos del formulario.
+        Limpia todos los campos del formulario de la vista.
         """
-        self.view.date_input.clear()
+        self.view.date_input.setText(QDate.currentDate().toString("dd/MM/yyyy"))
         self.view.symbol_input.clear()
-        self.view.direction_input.clear()
+        self.view.direction_input.setCurrentIndex(0)
         self.view.entry_price_input.clear()
         self.view.stop_loss_input.clear()
         self.view.take_profit_input.clear()
         self.view.exit_price_input.clear()
         self.view.size_input.clear()
         self.view.notes_input.clear()
+        self.view.strategy_input.clear()
+        self.view.risk_reward_input.clear()
+
+
+    
