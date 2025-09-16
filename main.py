@@ -4,8 +4,34 @@ from src.core.database import DatabaseManager
 from src.ui.main_window import MainWindow
 from src.ui.journal_view import JournalView
 from src.core.controllers.journal_controller import JournalController
+from src.ui.journal_view import JournalView
+from src.ui.dashboard_view import DashboardView
+from src.core.services.analysis_service import AnalysisService
 
 def main():
+
+    app = QApplication(sys.argv)
+
+    db_manager = DatabaseManager()
+    analysis_service = AnalysisService(db_manager)
+    
+    # Creamos las vistas
+    journal_view = JournalView()
+    dashboard_view = DashboardView()
+    
+    # Pasamos todas las dependencias necesarias al controlador
+    journal_controller = JournalController(
+        journal_view,
+        db_manager,
+        dashboard_view,
+        analysis_service
+    )
+
+    main_window = MainWindow(journal_view, dashboard_view, journal_controller)
+    main_window.show()
+    
+    sys.exit(app.exec())
+
     """
     Función principal que inicializa y ejecuta la aplicación.
     """

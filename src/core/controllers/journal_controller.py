@@ -1,22 +1,24 @@
-from src.core.database import DatabaseManager
 from PyQt6.QtCore import QDate
+from src.core.database import DatabaseManager
+from src.ui.journal_view import JournalView
+from src.ui.dashboard_view import DashboardView
+from src.core.services.analysis_service import AnalysisService
+from src.ui.dashboard_view import DashboardView
+from src.core.services.analysis_service import AnalysisService
+
 
 class JournalController:
     """
     Controlador para la vista de registro de operaciones.
     """
-    def __init__(self, view, db_manager):
-        """
-        Inicializa el controlador.
-
-        Args:
-            view: La instancia de la vista JournalView.
-            db_manager: La instancia de DatabaseManager.
-        """
+    
+    def __init__(self, view: JournalView, db_manager: DatabaseManager, dashboard_view: DashboardView, analysis_service: AnalysisService):
         self.view = view
         self.db_manager = db_manager
+        self.dashboard_view = dashboard_view
+        self.analysis_service = analysis_service
         self.connect_signals()
-
+        
     def connect_signals(self):
         """
         Conecta las señales de la vista con los métodos del controlador.
@@ -78,6 +80,7 @@ class JournalController:
             # 5. Guardar los datos y limpiar el formulario
             self.db_manager.add_trade(trade_data)
             self.clear_form()
+            self.update_dashboard() # <-- ¡Añade esta línea!
 
         except ValueError as e:
             print(f"Error: {e}")
@@ -100,6 +103,16 @@ class JournalController:
         self.view.notes_input.clear()
         self.view.strategy_input.clear()
         self.view.risk_reward_input.clear()
+
+    def update_dashboard(self):
+        """
+        Actualiza los datos mostrados en el dashboard de análisis.
+        """
+        # Obtenemos las metricas del servicio de analisis
+        metrics = self.analysis_service.get_key_metrics()
+        
+        # Le decimos al dashboard que muestre las metricas
+        self.dashboard_view.update_metrics(metrics)
 
 
     
