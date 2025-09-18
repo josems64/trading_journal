@@ -10,7 +10,7 @@ class DatabaseManager:
         self.conn = None
         self.cursor = None
         self._create_directory()
-        self._create_table()
+        self._create_tables()
 
     def _create_directory(self):
         """
@@ -19,18 +19,15 @@ class DatabaseManager:
         directory = os.path.dirname(self.db_path)
         if directory and not os.path.exists(directory):
             os.makedirs(directory)
+            print(f"Directorio '{directory}' creado exitosamente.")
 
     def connect(self):
         """
         Establece una conexión con la base de datos SQLite y crea un cursor.
         """
         try:
-            # Imprimimos la ruta para verificar que sea correcta
-            print(f"Intentando conectar a la base de datos en: {self.db_path}")
-            
             self.conn = sqlite3.connect(self.db_path)
             self.cursor = self.conn.cursor()
-            print("Conexión a la base de datos exitosa.")
         except sqlite3.Error as e:
             print(f"Error al conectar con la base de datos: {e}")
             self.conn = None
@@ -45,20 +42,46 @@ class DatabaseManager:
             self.conn = None
             self.cursor = None
 
-    def _create_table(self):
+    def _create_tables(self):
         """
-        Crea la tabla 'trades' si no existe.
+        Crea todas las tablas necesarias si no existen.
         """
         self.connect()
         if self.conn is None:
-            print("No se pudo conectar a la base de datos, no se creará la tabla.")
             return
 
         try:
+            # Crea la tabla 'users'
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    first_name TEXT,
+                    last_name TEXT,
+                    email TEXT
+                )
+            ''')
+            self.conn.commit()
+            
+            # Crea la tabla 'assets'
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS assets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    user_id INTEGER,
+                    FOREIGN KEY (user_id) REFERENCES users (id)
+                )
+            ''')
+            self.conn.commit()
+
+            # Crea la tabla 'trades'
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS trades (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
                     date TEXT NOT NULL,
+                    time TEXT NOT NULL,
                     symbol TEXT NOT NULL,
                     direction TEXT NOT NULL,
                     entry_price REAL NOT NULL,
@@ -66,18 +89,20 @@ class DatabaseManager:
                     take_profit REAL,
                     exit_price REAL,
                     size REAL NOT NULL,
-                    profit_loss REAL,
                     profit_loss_usd REAL,
                     notes TEXT,
                     strategy TEXT,
                     risk_reward REAL,
-                    trade_outcome TEXT
+                    trade_outcome TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users (id)
                 )
             ''')
             self.conn.commit()
-            print("Tabla 'trades' verificada/creada exitosamente.")
+            
+            print("Tablas 'users', 'assets' y 'trades' verificadas/creadas exitosamente.")
+
         except sqlite3.Error as e:
-            print(f"Error al crear la tabla: {e}")
+            print(f"Error al crear las tablas: {e}")
         finally:
             self.disconnect()
 
@@ -92,20 +117,37 @@ class DatabaseManager:
         try:
             self.cursor.execute('''
                 INSERT INTO trades (
-                    date, symbol, direction, entry_price, stop_loss, take_profit,
-                    exit_price, size, profit_loss, profit_loss_usd, notes,
+                    user_id, date, time, symbol, direction, entry_price, stop_loss, take_profit,
+                    exit_price, size, profit_loss_usd, notes,
                     strategy, risk_reward, trade_outcome
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                trade_data.get('date'), trade_data.get('symbol'), trade_data.get('direction'),
+                trade_data.get('user_id'), trade_data.get('date'), trade_data.get('time'), trade_data.get('symbol'), trade_data.get('direction'),
                 trade_data.get('entry_price'), trade_data.get('stop_loss'), trade_data.get('take_profit'),
-                trade_data.get('exit_price'), trade_data.get('size'), trade_data.get('profit_loss'),
+                trade_data.get('exit_price'), trade_data.get('size'),
                 trade_data.get('profit_loss_usd'), trade_data.get('notes'), trade_data.get('strategy'),
                 trade_data.get('risk_reward'), trade_data.get('trade_outcome')
             ))
             self.conn.commit()
-            print("Datos insertados exitosamente.")
         except sqlite3.Error as e:
             print(f"Error al insertar datos: {e}")
+        finally:
+            self.disconnect()
+
+    def get_assets_by_user(self, user_id):
+        """
+        Obtiene todos los activos registrados por un usuario.
+        """
+        self.connect()
+        if self.conn is None:
+            return []
+        
+        try:
+            self.cursor.execute("SELECT name FROM assets WHERE user_id = ?", (user_id,))
+            assets = [row[0] for row in self.cursor.fetchall()]
+            return assets
+        except sqlite3.Error as e:
+            print(f"Error al obtener los activos: {e}")
+            return []
         finally:
             self.disconnect()

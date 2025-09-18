@@ -1,60 +1,67 @@
 import sqlite3
-from ..database import DatabaseManager
+from src.core.database import DatabaseManager
 
 class AnalysisService:
-    """
-    Servicio que gestiona la lógica de análisis de datos del diario de trading.
-    """
     def __init__(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
 
-    def get_key_metrics(self):
-        """
-        Calcula y retorna las métricas clave de la bitácora.
-        """
-        all_trades = self._get_all_trades_data()
-        
-        if not all_trades:
-            return {
-                'total_trades': 0,
-                'win_rate': 0.0,
-                'total_profit': 0.0
-            }
-
-        total_trades = len(all_trades)
-        winning_trades = [trade for trade in all_trades if trade['trade_outcome'] == 'Win']
-        total_profit = sum(trade['profit_loss_usd'] for trade in all_trades)
-        
-        win_rate = (len(winning_trades) / total_trades) * 100 if total_trades > 0 else 0
-        
-        return {
-            'total_trades': total_trades,
-            'win_rate': win_rate,
-            'total_profit': total_profit
-        }
-
-    def _get_all_trades_data(self):
-        """
-        Obtiene todos los registros de trades de la base de datos como diccionarios.
-        """
+    def get_total_trades(self, user_id):
+        """Retorna el número total de operaciones de un usuario."""
         self.db_manager.connect()
-        if self.db_manager.conn is None:
-            return []
-        
         try:
-            cursor = self.db_manager.cursor
-            # Usar PRAGMA table_info para obtener los nombres de las columnas
-            cursor.execute("PRAGMA table_info(trades)")
-            columns = [col[1] for col in cursor.fetchall()]
-            
-            cursor.execute("SELECT * FROM trades")
-            rows = cursor.fetchall()
-            
-            # Convertir las filas a diccionarios
-            trades_list = [dict(zip(columns, row)) for row in rows]
-            return trades_list
+            self.db_manager.cursor.execute(
+                "SELECT COUNT(*) FROM trades WHERE user_id = ?",
+                (user_id,)
+            )
+            total_trades = self.db_manager.cursor.fetchone()[0]
+            return total_trades
         except sqlite3.Error as e:
-            print(f"Error al obtener los datos: {e}")
-            return []
+            print(f"Error al obtener el total de operaciones: {e}")
+            return 0
+        finally:
+            self.db_manager.disconnect()
+
+    def get_win_rate(self, user_id):
+        """Calcula el porcentaje de operaciones ganadoras de un usuario."""
+        self.db_manager.connect()
+        try:
+            self.db_manager.cursor.execute(
+                "SELECT COUNT(*) FROM trades WHERE user_id = ? AND trade_outcome = 'Win'",
+                (user_id,)
+            )
+            total_wins = self.db_manager.cursor.fetchone()[0]
+            
+            self.db_manager.cursor.execute(
+                "SELECT COUNT(*) FROM trades WHERE user_id = ? AND trade_outcome IN ('Win', 'Loss')",
+                (user_id,)
+            )
+            total_resolved_trades = self.db_manager.cursor.fetchone()[0]
+            
+            if total_resolved_trades == 0:
+                return 0.0
+            
+            win_rate = (total_wins / total_resolved_trades) * 100
+            return win_rate
+        except sqlite3.Error as e:
+            print(f"Error al calcular el porcentaje de victorias: {e}")
+            return 0.0
+        finally:
+            self.db_manager.disconnect()
+
+    def get_total_profit(self, user_id):
+        """Calcula la ganancia o pérdida total de un usuario en USD."""
+        self.db_manager.connect()
+        try:
+            self.db_manager.cursor.execute(
+                "SELECT SUM(profit_loss_usd) FROM trades WHERE user_id = ?",
+                (user_id,)
+            )
+            total_profit = self.db_manager.cursor.fetchone()[0]
+            if total_profit is None:
+                return 0.0
+            return total_profit
+        except sqlite3.Error as e:
+            print(f"Error al calcular la ganancia total: {e}")
+            return 0.0
         finally:
             self.db_manager.disconnect()
